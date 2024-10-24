@@ -2,6 +2,10 @@
 
 #include "GameState.h"
 #include "GameStateEditor.h"
+#include "TaxPolicy.h"
+#include "LowTax.h"
+#include "MidTax.h"
+#include "HighTax.h"
 
 void GameStateEditor::draw(const float dt)
 {
@@ -26,10 +30,15 @@ void GameStateEditor::update(const float dt)
 	this->guiSystem.at("infoBar").setEntryText(1, "$" + std::to_string(long(this->city.funds)));
 	this->guiSystem.at("infoBar").setEntryText(2, std::to_string(long(this->city.population)) + " (" + std::to_string(long(this->city.getHomeless())) + ")");
 	this->guiSystem.at("infoBar").setEntryText(3, std::to_string(long(this->city.employable)) + " (" + std::to_string(long(this->city.getUnemployed())) + ")");
-	this->guiSystem.at("infoBar").setEntryText(4, tileTypeToStr(currentTile->tileType));
+	this->guiSystem.at("infoBar").setEntryText(4, "Tax Rate: " + this->city.getTaxPolicy());
+	this->guiSystem.at("infoBar").setEntryText(5, tileTypeToStr(currentTile->tileType));
 
-	 /* Highlight entries of the right click context menu */
+	/* Highlight entries of the right click context menu */
     this->guiSystem.at("rightClickMenu").highlight(this->guiSystem.at("rightClickMenu")
+	.getEntry(this->game->window.mapPixelToCoords(sf::Mouse::getPosition(this->game->window), this->guiView)));
+
+	/* Highlight entries of the right click context menu */
+    this->guiSystem.at("TaxMenu").highlight(this->guiSystem.at("TaxMenu")
 	.getEntry(this->game->window.mapPixelToCoords(sf::Mouse::getPosition(this->game->window), this->guiView)));
 
 	return;
@@ -88,6 +97,8 @@ void GameStateEditor::handleInput()
 				}
 			    /* Highlight entries of the right click context menu */
 				this->guiSystem.at("rightClickMenu").highlight(this->guiSystem.at("rightClickMenu").getEntry(guiPos));
+				/* Highlight entries of the tax menu */
+				this->guiSystem.at("TaxMenu").highlight(this->guiSystem.at("TaxMenu").getEntry(guiPos));
 				break;
 			}
 			case sf::Event::MouseButtonPressed:
@@ -96,6 +107,7 @@ void GameStateEditor::handleInput()
 				if(event.mouseButton.button == sf::Mouse::Middle)
 				{
 				    this->guiSystem.at("rightClickMenu").hide();
+					this->guiSystem.at("TaxMenu").hide();
 				    this->guiSystem.at("selectionCostText").hide();
 			        
 					if(this->actionState != ActionState::PANNING)
@@ -115,6 +127,24 @@ void GameStateEditor::handleInput()
 							this->currentTile = this->game->tileAtlas.at(msg);
 						}
 						this->guiSystem.at("rightClickMenu").hide();
+					}
+					/* Select a tax menu entry */
+					else if(this->guiSystem.at("TaxMenu").visible == true)
+					{
+						std::string msg = this->guiSystem.at("TaxMenu").activate(guiPos);
+						if(msg == "lowtax") 
+						{
+							this->city.setTaxPolicy(new LowTax());
+						}
+						else if(msg == "midtax")
+						{
+							this->city.setTaxPolicy(new MidTax());
+						}
+						else if(msg == "hightax")
+						{
+							this->city.setTaxPolicy(new HighTax());
+						}
+						this->guiSystem.at("TaxMenu").hide();
 					}
 					/* Select map tile */
 					else
@@ -222,6 +252,40 @@ void GameStateEditor::handleInput()
 				    float(event.size.height) / float(this->game->background.getTexture()->getSize().y));
 				break;
 			}
+			case sf::Event::KeyPressed:
+            {
+                if(event.key.code == sf::Keyboard::Escape)
+				{
+					 this->game->window.close();
+				}
+				else if(event.key.code == sf::Keyboard::T)
+				{
+					/* Stop selecting */
+			        if(this->actionState == ActionState::SELECTING)
+				    {
+					    this->actionState = ActionState::NONE;
+					    this->guiSystem.at("selectionCostText").hide();
+					    this->city.map.clearSelected();
+				    }
+				    else
+				    {
+				        /* Open the tax menu */
+						sf::Vector2f pos = guiPos;
+
+						if(pos.x > this->game->window.getSize().x - this->guiSystem.at("TaxMenu").getSize().x)
+						{
+							pos -= sf::Vector2f(this->guiSystem.at("TaxMenu").getSize().x, 0);
+						}
+						if(pos.y > this->game->window.getSize().y - this->guiSystem.at("TaxMenu").getSize().y)
+						{
+							pos -= sf::Vector2f(0, this->guiSystem.at("TaxMenu").getSize().y);
+						}
+						this->guiSystem.at("TaxMenu").setPosition(pos);
+						this->guiSystem.at("TaxMenu").show();
+					}
+				}
+                break;
+            }
 			default: break;
 		}
 	}
@@ -254,15 +318,25 @@ GameStateEditor::GameStateEditor(Game* game)
 			std::make_pair("Road $" 			+ this->game->tileAtlas["road"]->getCost(), "road")
 		}));
 
+	this->guiSystem.emplace("TaxMenu", Gui(sf::Vector2f(196, 16), 2, false, this->game->stylesheets.at("button"),
+		{
+			std::make_pair("Set tax rate low", "lowtax"),
+			std::make_pair("Set tax rate mid", "midtax"),
+			std::make_pair("Set tax rate high", "hightax")
+		}));
+
 	this->guiSystem.emplace("selectionCostText", Gui(sf::Vector2f(196, 16), 0, false, this->game->stylesheets.at("text"),
 		{ std::make_pair("", "") }));
 
-	this->guiSystem.emplace("infoBar", Gui(sf::Vector2f(this->game->window.getSize().x / 5 , 16), 2, true, this->game->stylesheets.at("button"),
-		{ std::make_pair("time", "time"),
-		std::make_pair("funds", "funds"),
-		std::make_pair("population", "population"),
-		std::make_pair("employment", "employment"),
-		std::make_pair("current tile", "tile") }));
+	this->guiSystem.emplace("infoBar", Gui(sf::Vector2f(this->game->window.getSize().x / 6 , 16), 2, true, this->game->stylesheets.at("button"),
+		{ 
+			std::make_pair("time", "time"),
+			std::make_pair("funds", "funds"),
+			std::make_pair("population", "population"),
+			std::make_pair("employment", "employment"),
+			std::make_pair("Tax Policy:", "tax"),
+			std::make_pair("current tile", "tile") 
+		}));
 	this->guiSystem.at("infoBar").setPosition(sf::Vector2f(0, this->game->window.getSize().y - 16));
 	this->guiSystem.at("infoBar").show();
 	

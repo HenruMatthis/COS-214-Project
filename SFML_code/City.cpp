@@ -10,6 +10,23 @@
 #include "City.h"
 #include "Tile.h"
 
+void City::setTaxPolicy(TaxPolicy* policy)
+{
+    if(taxPolicy != NULL)
+    {
+        delete taxPolicy;
+    }
+    taxPolicy = policy;
+}
+
+std::string City::getTaxPolicy()
+{
+    if(taxPolicy != NULL)
+    {
+        return taxPolicy->getTaxPolicy();
+    }
+}
+
 double City::distributePool(double &pool, Tile *tile, double rate = 0.0)
 {
     const static int moveRate = 4;
@@ -334,9 +351,9 @@ void City::update(float dt)
     this->population = popTotal;
  
     /* Calculate city income from tax. */
-    this->earnings = (this->population - this->populationPool) * 15 * this->residentialTax;
-    this->earnings += commercialRevenue * this->commercialTax;
-    this->earnings += industrialRevenue * this->industrialTax;
+    this->earnings = this->taxPolicy->calculateTax((this->population - this->populationPool) * 15);
+    this->earnings += this->taxPolicy->calculateTax(commercialRevenue);
+    this->earnings += this->taxPolicy->calculateTax(industrialRevenue);
  
     return;
 }

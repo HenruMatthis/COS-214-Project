@@ -7,11 +7,18 @@
 #include "Map.h"
 #include "Tile.h"
 
+#include "TaxPolicy.h"
+#include "LowTax.h"
+#include "MidTax.h"
+#include "HighTax.h"
+
 class City
 {
 private:
     float currentTime;
     float timePerDay;
+
+    TaxPolicy* taxPolicy;
 
     std::vector<int> shuffledTiles;
 
@@ -65,6 +72,7 @@ public:
         this->currentTime = 0.0;
         this->timePerDay = 1.0;
         this->day = 0;
+        this->taxPolicy = new LowTax();
     }
 
     City(std::string cityName, int tileSize, std::map<std::string, Tile*> &tileAtlas) : City()
@@ -83,6 +91,9 @@ public:
 
     double getHomeless() { return this->populationPool; }
     double getUnemployed() { return this->employmentPool; }
+
+    void setTaxPolicy(TaxPolicy* policy);
+    std::string getTaxPolicy();
 };
 
 #endif /* CITY_HPP */

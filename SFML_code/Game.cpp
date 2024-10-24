@@ -120,7 +120,7 @@ void Game::gameLoop()
 Game::Game()
 {
     this->loadTextures();
-     this->loadFactories();
+    this->loadFactories();
     this->loadTiles();
     this->loadFonts();
 	this->loadStylesheets();
